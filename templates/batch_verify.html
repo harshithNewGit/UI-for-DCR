@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Verification</title>
+    <link rel="icon" href="{{ url_for('static', filename='icon.ico') }}" type="image/x-icon">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Company Logo">
+        </div>
+
+        <h1>Batch Verify Folders</h1>
+        <p>Select folders from the specified path to verify their structure.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('batch_verify') }}" method="post" class="path-form">
+            <label for="path_to_scan">Directory to Scan:</label>
+            <div class="path-input-group">
+                <input type="text" id="path_to_scan" name="path_to_scan" value="{{ path_to_scan }}">
+                <button type="submit">List Folders</button>
+            </div>
+        </form>
+
+        {% if subdirectories %}
+        <form id="batch-form">
+            <input type="hidden" name="base_path" value="{{ path_to_scan }}">
+            <div class="folder-list">
+                <div class="select-all-container">
+                    <input type="checkbox" id="select-all">
+                    <label for="select-all">Select All</label>
+                </div>
+                <ul id="folder-checkbox-list">
+                    {% for subdir in subdirectories %}
+                    <li>
+                        <input type="checkbox" name="folders_to_verify" value="{{ subdir }}" id="folder-{{ loop.index }}">
+                        <label for="folder-{{ loop.index }}">{{ subdir }}</label>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div id="run-controls">
+                <button type="submit" class="run-verification-button">Run Verification on Selected</button>
+            </div>
+            <div id="progress-controls" style="display: none;">
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progress-bar" style="width: 0%;"></div>
+                </div>
+                <button type="button" id="cancel-button" class="cancel-button">Cancel</button>
+            </div>
+        </form>
+        {% elif path_to_scan %}
+        <p>No subdirectories found in the specified path.</p>
+        {% endif %}
+
+        <div class="nav-link">
+            <a href="/" class="go-back-button">Go Back</a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('select-all').addEventListener('change', function(event) {
+            var checkboxes = document.querySelectorAll('input[name="folders_to_verify"]');
+            for (var checkbox of checkboxes) {
+                checkbox.checked = event.target.checked;
+            }
+        });
+
+        const batchForm = document.getElementById('batch-form');
+        const runControls = document.getElementById('run-controls');
+        const progressControls = document.getElementById('progress-controls');
+        const progressBar = document.getElementById('progress-bar');
+        const cancelButton = document.getElementById('cancel-button');
+        let currentTaskId = null;
+        let intervalId = null;
+
+        batchForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(batchForm);
+            const response = await fetch("{{ url_for('start_batch_task') }}", {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                currentTaskId = data.task_id;
+                runControls.style.display = 'none';
+                progressControls.style.display = 'flex';
+                document.getElementById('folder-checkbox-list').style.opacity = 0.5;
+                intervalId = setInterval(checkStatus, 2000); // Poll every 2 seconds
+            } else {
+                alert("Failed to start batch verification.");
+            }
+        });
+
+        async function checkStatus() {
+            if (!currentTaskId) return;
+
+            const response = await fetch(`/task_status/${currentTaskId}`);
+            if (response.ok) {
+                const data = await response.json();
+                progressBar.style.width = data.progress + '%';
+                progressBar.textContent = Math.round(data.progress) + '%';
+
+                if (data.status === 'Completed') {
+                    clearInterval(intervalId);
+                    window.location.href = `/task_result/${currentTaskId}`;
+                } else if (data.status === 'Failed' || data.status === 'Cancelled') {
+                    clearInterval(intervalId);
+                    alert(`Task ${data.status}!`);
+                    window.location.reload();
+                }
+            } else {
+                clearInterval(intervalId);
+                alert("Error checking task status.");
+            }
+        }
+
+        cancelButton.addEventListener('click', async function() {
+            if (!currentTaskId) return;
+
+            await fetch(`/cancel_task/${currentTaskId}`, { method: 'POST' });
+            cancelButton.disabled = true;
+            cancelButton.textContent = 'Cancelling...';
+        });
+    </script>
+</body>
+</html>

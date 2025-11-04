@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Verification Results</title>
+    <link rel="icon" href="{{ url_for('static', filename='icon.ico') }}" type="image/x-icon">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Company Logo">
+        </div>
+
+        <h1>Batch Verification Results</h1>
+
+        {% if error_message %}
+            <h1 class="error">An Error Occurred</h1>
+            <p><strong>Details:</strong> {{ error_message }}</p>
+        {% else %}
+            <h2>Verification Summary</h2>
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                        <th>Folder Name</th>
+                        <th>Status</th>
+                        <th>OK</th>
+                        <th>Missing</th>
+                        <th>Added</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in results %}
+                    <tr class="{% if result.success %}status-green-row{% else %}status-red-row{% endif %}">
+                        <td>{{ result.name }}</td>
+                        <td><span class="status-badge-table">{% if result.success %}OK{% else %}FAIL{% endif %}</span></td>
+                        <td>{{ result.counts.green }}</td>
+                        <td>{{ result.counts.red }}</td>
+                        <td>{{ result.counts.yellow }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <h2>Detailed View</h2>
+            <div class="accordion">
+                {% for result in results %}
+                <details class="accordion-item">
+                    <summary class="accordion-header {% if result.success %}status-green{% else %}status-red{% endif %}">
+                        <span class="folder-name">{{ result.name }}</span>
+                        <span class="status-badge">{% if result.success %}OK{% else %}FAIL{% endif %}</span>
+                    </summary>
+                    <div class="accordion-content">
+                        <div class="legend">
+                            <span class="legend-item"><span class="color-box status-green"></span>All OK ({{ result.counts.green }})</span>
+                            <span class="legend-item"><span class="color-box status-red"></span>Missing ({{ result.counts.red }})</span>
+                            <span class="legend-item"><span class="color-box status-yellow"></span>Added ({{ result.counts.yellow }})</span>
+                        </div>
+                        <div class="verification-columns">
+                            <div class="column">
+                                <h2>Ideal Structure</h2>
+                                <div class="log-box ascii-tree">{% for line in result.ideal %}{{ line|safe }}<br>{% endfor %}</div>
+                            </div>
+                            <div class="column">
+                                <h2>Actual Structure</h2>
+                                <div class="log-box ascii-tree">{% for line in result.actual %}{{ line|safe }}<br>{% endfor %}</div>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="nav-link">
+            <a href="/batch_verify" class="go-back-button">Go Back to Batch Verification</a>
+        </div>
+    </div>
+</body>
+</html>

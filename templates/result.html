@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Folder Creator - Result</title>
+    <link rel="icon" href="{{ url_for('static', filename='icon.ico') }}" type="image/x-icon">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Company Logo">
+        </div>
+
+        {% if is_verification %}
+            
+                        {% if success %}
+                <h1 class="success">Verification Complete</h1>
+                <p>The folder structure is correct and matches the template.</p>
+            {% else %}
+                <h1 class="error">Verification Complete</h1>
+                <p>Discrepancies were found in the folder structure.</p>
+            {% endif %}
+
+            <div class="legend">
+                <span class="legend-item"><span class="color-box status-green"></span>All OK ({{ counts.green }})</span>
+                <span class="legend-item"><span class="color-box status-red"></span>Missing ({{ counts.red }})</span>
+                <span class="legend-item"><span class="color-box status-yellow"></span>Added ({{ counts.yellow }})</span>
+            </div>
+
+            <div class="verification-columns">
+                <div class="column">
+                    <h2>Ideal Structure</h2>
+                    <div class="log-box ascii-tree">{% for line in ideal_structure %}{{ line|safe }}<br>{% endfor %}</div>
+                </div>
+                <div class="column">
+                    <h2>Actual Structure</h2>
+                    <div class="log-box ascii-tree">{% for line in actual_structure %}{{ line|safe }}<br>{% endfor %}</div>
+                </div>
+            </div>
+
+        {% else %}
+            {% if success %}
+                <h1 class="success">Setup Completed Successfully!</h1>
+                <h2>Log Details:</h2>
+                <div class="log-box">
+                    {% for line in logs %}{{ line }}{% if not loop.last %}&#10;{% endif %}{% endfor %}
+                </div>
+            {% else %}
+                <h1 class="error">An Error Occurred</h1>
+                <p><strong>Details:</strong> {{ error_message }}</p>
+            {% endif %}
+        {% endif %}
+        <br>
+        <div class="nav-link">
+            <a href="/" class="go-back-button">Go Back</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Folder Creator - Settings</title>
+    <link rel="icon" href="{{ url_for('static', filename='icon.ico') }}" type="image/x-icon">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- CodeMirror CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/theme/material-darker.min.css">
+
+</head>
+<body>
+    <div class="container">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Company Logo">
+        </div>
+
+        <h1>Settings</h1>
+        <p>Edit the base path and folder structure template below. Be careful with formatting.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="post">
+            <label for="base_path">Base Path:</label>
+            <input type="text" id="base_path" name="base_path" value="{{ base_path }}" required>
+
+            <label for="structure_content">Folder Structure (Client_Structure.txt):</label>
+            <textarea id="structure_content" name="structure_content">{{ structure_content }}</textarea>
+
+            <br><br>
+            <button type="submit">Save Settings</button>
+        </form>
+
+        <div class="nav-link">
+            <a href="/" class="go-back-button">Go Back</a>
+        </div>
+    </div>
+
+    <!-- CodeMirror JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.js"></script>
+    <script>
+        // Define a custom mode for the structure file
+        CodeMirror.defineSimpleMode("structure", {
+            start: [
+                // A line with just "..."
+                {regex: /^\s*\.\.\.\s*$/, token: "keyword", sol: true},
+                // A line starting with hyphens
+                {regex: /-\s*/, token: "operator", sol: true, next: "line"},
+            ],
+            line: [
+                // Match the readme note in parentheses
+                {regex: /\(.*\)/, token: "comment"},
+                // End of the line
+                {regex: /$/, token: null, next: "start"}
+            ],
+            meta: {
+                lineComment: "#"
+            }
+        });
+
+        // Initialize CodeMirror on our textarea
+        var editor = CodeMirror.fromTextArea(document.getElementById("structure_content"), {
+            lineNumbers: true,
+            mode: "structure",
+            theme: "material-darker" // A nice dark theme for the editor
+        });
+    </script>
+</body>
+</html>
