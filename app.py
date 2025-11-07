@@ -3,12 +3,26 @@ import datetime
 import re
 import calendar
 from flask import Flask, render_template, request, flash, redirect, url_for
+from dotenv import load_dotenv
 import uuid
 import threading
 import time
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'  # Needed for flashing messages
+
+# --- Email Configuration ---
+# Load environment variables from the .env file
+load_dotenv()
+
+SMTP_SERVER = "smtp.gmail.com"      # SMTP server for Gmail
+SMTP_PORT = 587                 # Use 587 for TLS
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+RECIPIENT_EMAILS = ["harshith@acutant.com"] # TODO: Change this
 
 # === UTILITY FUNCTIONS (from original script) ===
 def timestamp():
@@ -194,6 +208,31 @@ def write_verification_log(path_to_verify, counts, missing_items, added_items):
     with open(changes_file_path, "w", encoding="utf-8") as f:
         f.write("\n".join(changes_content))
 
+def send_email(html_content, subject):
+    """
+    Sends an email with the given HTML content to the configured recipients.
+    """
+    if not all([EMAIL_USER, EMAIL_PASSWORD]):
+        print(f"[{timestamp()}] Email user or password not configured. Email not sent.")
+        return
+
+    msg = MIMEMultipart()
+    msg['From'] = EMAIL_USER
+    msg['To'] = ", ".join(RECIPIENT_EMAILS)
+    msg['Subject'] = subject
+
+    msg.attach(MIMEText(html_content, 'html'))
+
+    try:
+        print(f"[{timestamp()}] Connecting to SMTP server to send verification report...")
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(EMAIL_USER, EMAIL_PASSWORD)
+            server.send_message(msg)
+            print(f"[{timestamp()}] Verification report email sent successfully!")
+    except Exception as e:
+        print(f"[{timestamp()}] An error occurred while sending the email: {e}")
+
 def get_files_in_path(path):
     """Helper to get a set of files in a given directory, returns empty set if path not found."""
     return {item for item in os.listdir(path) if os.path.isfile(os.path.join(path, item))} if os.path.isdir(path) else set()
@@ -338,6 +377,39 @@ def batch_verification_worker(task_id, selected_folders, base_path, tasks):
     task['results'] = results
     task['status'] = 'Completed'
 
+    if task['cancelled']:
+        print(f"Task {task_id} has been cancelled")
+        return
+    
+    # After the task is completed, send a summary email
+    today_str = datetime.date.today().strftime("%d-%b-%Y")
+    email_subject = f"Batch Verification Report - {today_str}"
+    
+    # Generate HTML content for the email
+    summary_html = f"""
+    <html>
+    <head>
+        <style>
+            body {{ font-family: sans-serif; }}
+            table {{ border-collapse: collapse; width: 100%; }}
+            th, td {{ border: 1px solid #dddddd; text-align: left; padding: 8px; }}
+            th {{ background-color: #f2f2f2; }}
+            .status-ok {{ color: green; }}
+            .status-fail {{ color: red; }}
+        </style>
+    </head>
+    <body>
+        <h2>Batch Verification Summary - {current_date_time()}</h2>
+        <p>The following {len(results)} folders were verified:</p>
+        <table>
+            <tr><th>Folder Name</th><th>Status</th><th>OK</th><th>Missing</th><th>Added</th></tr>
+            {''.join([f"<tr><td>{r['name']}</td><td class='{'status-ok' if r['success'] else 'status-fail'}'>{'OK' if r['success'] else 'Discrepancies'}</td><td>{r['counts']['green']}</td><td>{r['counts']['red']}</td><td>{r['counts']['yellow']}</td></tr>" for r in results])}
+        </table>
+    </body>
+    </html>
+    """
+    send_email(summary_html, email_subject)
+
 # === FLASK WEB ROUTES ===
 
 @app.route('/', methods=['GET'])
@@ -428,6 +500,7 @@ def start_batch_task():
         'cancel_event': cancel_event,
         'status': 'Pending',
         'progress': 0,
+        'cancelled': False, # Initialize the cancelled flag
         'results': None
     }
     thread.start()
@@ -448,6 +521,7 @@ def cancel_task(task_id):
     task = tasks.get(task_id)
     if task:
         task['cancel_event'].set()
+        task['cancelled'] = True # Also set the flag for good measure
         return {"message": "Cancellation signal sent."}
     return {"message": "Task not found."}, 404
 

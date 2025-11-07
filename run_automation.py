@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 # This script loads them from a file named '.env' in the same directory.
 load_dotenv()
 
-SMTP_SERVER = "smtp.office365.com"  # SMTP server for Outlook/Office 365
+SMTP_SERVER = "smtp.gmail.com"      # SMTP server for Gmail
 SMTP_PORT = 587                 # Use 587 for TLS or 465 for SSL
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
